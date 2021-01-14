@@ -33,7 +33,7 @@
 * @group Batch Job
 * @description Batch job service
 */
-public with sharing class UTIL_BatchJobService {
+public without sharing class UTIL_BatchJobService {
     /***
     * @description A batch job custom exception
     */
@@ -81,7 +81,7 @@ public with sharing class UTIL_BatchJobService {
     public Boolean isInProgress(Id batchId) {
         if (batchId == null) {
             return false;
-        }
+        } 
 
         return (Database.countQuery('SELECT Count() FROM AsyncApexJob WHERE Id = :batchId AND Status IN :IN_PROGRESS_STATUSES') > 0);
     }
@@ -93,6 +93,50 @@ public with sharing class UTIL_BatchJobService {
     */
     public Boolean isInProgress(String status) {
         return IN_PROGRESS_STATUSES.contains(status.toUpperCase());
+    }
+
+    /***
+    * @description Determines if we have at least one *other* batch job running.
+    * The method is called from a batch job, so in this context, we exclude the batch itself.
+    * @param className Batch class name
+    * @return Boolean
+    */
+    public Boolean isConcurrentBatch(String className) {
+        return getAsyncApexJobInProgress(className).size() > 1;
+    }
+
+    /***
+    * @description Determines if any batch job with the same class name is running
+    * @param className Batch class name
+    * @return Boolean
+    */
+    public Boolean isBatchInProgress(String className) {
+        return getAsyncApexJobInProgress(className).size() > 0;
+    }
+
+    /***
+    * @description Logs an error when another same batch is running
+    * @param className Apex batch class name
+    * @param context Error context
+    * @return void
+    */
+    public void logConcurrentBatchError(String className, ERR_Handler_API.Context context) {
+        BatchException ex = new BatchException();
+        ex.setMessage(getConcurrentBatchMessage(className));
+
+        ERR_Handler.processError(ex, context);
+    }
+
+    /***
+    * @description Builds concurrent batch error message
+    * @param className Apex batch class name
+    * @return String
+    */
+    public String getConcurrentBatchMessage(String className) {
+        return String.format(
+            System.Label.commonConcurrentBatchError,
+            new List<String>{ className }
+        );
     }
 
     /***
@@ -128,6 +172,34 @@ public with sharing class UTIL_BatchJobService {
     }
 
     /***
+    * @description Returns the list of batches that are in progress at this moment.
+    * @param className Apex class name
+    * @return List<AsuncApexJob>
+    */
+    public List<AsyncApexJob> getAsyncApexJobInProgress(String className) {      
+        String namespacePrefix = UTIL_Namespace.getNamespace();
+        
+        //Remove the namespace from the class name
+        className = UTIL_Namespace.removeClassNamespace(className);  
+
+        List<AsyncApexJob> apexJobs = [
+            SELECT
+                Status, ApexClass.Name,
+                ExtendedStatus, NumberOfErrors,
+                TotalJobItems, JobItemsProcessed,
+                CreatedDate, CompletedDate
+            FROM AsyncApexJob
+            WHERE JobType = :JOB_TYPE_BATCH
+                AND ApexClass.Name = :className
+                AND ApexClass.NamespacePrefix = :namespacePrefix
+                AND Status IN :IN_PROGRESS_STATUSES
+            ORDER BY CreatedDate DESC
+        ];
+       
+        return apexJobs;
+    }
+
+    /***
     * @description Returns the latest batch job for the specified job Id
     * @param jobId Batch job Id 
     * @return AsyncApexJob
@@ -154,6 +226,9 @@ public with sharing class UTIL_BatchJobService {
     */
     public AsyncApexJob getAsyncApexJob(String className) {
         String namespacePrefix = UTIL_Namespace.getNamespace();
+
+        //Remove the namespace from the class name
+        className = UTIL_Namespace.removeClassNamespace(className);  
 
         List<AsyncApexJob> apexJobs = [
             SELECT
@@ -182,7 +257,6 @@ public with sharing class UTIL_BatchJobService {
 
         return batchJob == null ? null : new BatchJob(batchJob);
     }
-
 
     /***
     * @description Batch job descriptor

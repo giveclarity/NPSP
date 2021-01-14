@@ -1045,14 +1045,34 @@
             </svg>
         </template>
         <div class="slds-text-longform">
+            <h2 if:true={hasHeading}
+                class="slds-text-heading_medium">
+                {heading}
+            </h2>
             <h3 if:true={hasTitle}
                 class="slds-text-heading_medium">
                 {title}
             </h3>
-            <p if:true={hasMessage}
-               class="slds-text-body_regular">
-               {message}
-            </p>
+            <template if:true={shouldWrapText}>
+                <lightning-layout>
+                    <lightning-layout-item size="12"
+                                           large-device-size="6"
+                                           small-device-size="12"
+                                           medium-device-size="8"
+                                           class="slds-align_absolute-center">
+                        <lightning-formatted-rich-text if:true={hasMessage}
+                                                       class="slds-align_absolute-center"
+                                                       value={message}>
+                        </lightning-formatted-rich-text>
+                    </lightning-layout-item>
+                </lightning-layout>
+            </template>
+            <template if:false={shouldWrapText}>
+                <p if:true={hasMessage}
+                   class="slds-text-body_regular">
+                    {message}
+                </p>
+            </template>
             <slot name="body"></slot>
         </div>
     </div>

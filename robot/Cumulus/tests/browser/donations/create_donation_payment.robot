@@ -9,7 +9,7 @@ Library         cumulusci.robotframework.PageObjects
 Suite Setup     Run keywords
 ...             Open Test Browser
 ...             Setup Test Data
-Suite Teardown  Delete Records and Close Browser
+Suite Teardown  Capture Screenshot and Delete Records and Close Browser
 
 ***Keywords***
 # Sets up all the required data for the test based on the keyword requests
@@ -38,14 +38,13 @@ Create Donation and Opportunity and Create Payment Manually
     Wait For Modal                          New                       Opportunity: Donation
     # Create a new Opportunity from the UI
 
-    Populate Modal Form
-    ...                                     Opportunity Name=${opp_name}
-    ...                                     Account Name=${data}[contact][LastName] Household
-    ...                                     Amount=${Amount}
-    ...                                     Do Not Automatically Create Payment=checked
+
+    Populate Field                          Opportunity Name    ${opp_name}
+    Populate Lookup Field                   Account Name        ${data}[contact][LastName] Household
+    Populate Field                          Amount   ${Amount}
     Select Value From Dropdown              Stage    ${Stage_Type}
-    Open Date Picker                        Close Date
-    Pick Date                               Today
+    Select Date From Datepicker             Close Date          Today
+    Set Checkbutton To                      Do Not Automatically Create Payment     checked
     Click Modal Button                      Save
     Wait Until Modal Is Closed
     Current Page Should Be                  Details                                 Opportunity
@@ -57,12 +56,12 @@ Create Donation and Opportunity and Create Payment Manually
     Click Related List Button               Payments                                New
     Wait For Modal                          New                                     Payment
     Select Window
-    Populate Modal Form                     Payment Amount=100
-    ...                                     Payment Method=Credit Card
+    Populate Modal Form                     Payment Method=Credit Card
+    ...                                     Payment Amount=100
+    Select Date From Datepicker             Payment Date          Today
 
-    Open Date Picker                        Payment Date
-    Pick Date                               Today
-    Click Modal Button                      Save
+    Click Modal Footer Button               Save
+
     Scroll Page To Location                 0    0
     Validate Related Record Count           Payments                                1
 
@@ -70,14 +69,10 @@ Create Donation and Opportunity and Create Payment Manually
     ...                                     Contact
     ...                                     object_id=${data}[contact][Id]
     Wait Until Loading Is Complete
+    Current Page Should Be                  Details          Contact
     #Perform Validations
     ${opp_date} =     Get Current Date      result_format=%-m/%-d/%Y
-    Wait Until Keyword Succeeds             1 minute
-            ...                             5 seconds
-            ...                             Navigate To And Validate Field Value    Last Gift Date           contains       ${opp_date}          Donation Totals
-    Wait Until Keyword Succeeds             1 minute
-            ...                             5 seconds
-            ...                             Navigate To And Validate Field Value    Total Gifts              contains       $100.00              Soft Credit Total
-    Wait Until Keyword Succeeds             1 minute
-            ...                             5 seconds
-            ...                             Navigate To And Validate Field Value    Total Number of Gifts    contains       1                    Soft Credit Total
+
+    Navigate To And Validate Field Value    Last Gift Date           contains       ${opp_date}          Donation Totals
+    Navigate To And Validate Field Value    Total Gifts              contains       $100.00              Soft Credit Total
+    Navigate To And Validate Field Value    Total Number of Gifts    contains       1                    Soft Credit Total

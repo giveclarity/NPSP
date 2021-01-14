@@ -5,7 +5,7 @@
                                is-collapsed={isCollapsed}
                                body-class="slds-m-bottom_large">
         <lightning-layout multiple-rows='true'>
-            <template for:each={section.elements}
+            <template for:each={renderableElements}
                       for:item='element'>
                 <!-- TODO: It would be great to make the layout sizing more dynamic,
                     but the lightning-layout-item needs to be in the same component as the lightning-layout.
@@ -16,9 +16,8 @@
                                            medium-device-size='3'>
                         <article class='slds-p-horizontal_small slds-p-vertical_xx-small'>
                             <c-ge-form-field element={element}
-                                             oncreditcardvaluechange={handleChangeNameOnCardField}
-                                             onlookuprecordselect={handleLookupRecordSelect}
-                                             onchangedonationdonor={handleChangeDonationDonor}>
+                                             onformfieldchange={handleFormFieldChange}
+                                             form-state={formState}>
                             </c-ge-form-field>
                         </article>
                     </lightning-layout-item>
@@ -27,7 +26,11 @@
                     <lightning-layout-item key={element.id}
                                            size='12'
                                            medium-device-size='12'>
-                        <c-ge-form-widget element={element} widget-data={widgetData}></c-ge-form-widget>
+                        <c-ge-form-widget element={element}
+                                          widget-data={widgetData}
+                                          form-state={formState}
+                                          onformwidgetchange={handleFormWidgetChange}>
+                        </c-ge-form-widget>
                     </lightning-layout-item>
                 </template>
             </template>

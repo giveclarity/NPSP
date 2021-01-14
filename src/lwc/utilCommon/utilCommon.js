@@ -1,5 +1,9 @@
 /* eslint-disable no-void */
 /* eslint-disable @lwc/lwc/no-async-operation */
+import { ShowToastEvent } from "lightning/platformShowToastEvent";
+import UtilDescribe from './utilDescribe';
+import unknownErrorLabel from '@salesforce/label/c.commonUnknownError';
+import commonLabelNone from '@salesforce/label/c.stgLabelNone';
 const FUNCTION = 'function';
 const OBJECT = 'object';
 
@@ -8,7 +12,7 @@ const OBJECT = 'object';
  * @description 'Debouncifies' any function.
  *
  * @param {object} anyFunction: Function to be debounced.
- * @param {integer} wait: Time to wait by in milliseconds.
+ * @param {number} wait: Time to wait by in milliseconds.
  * @returns {function<Promise>} A debounced version of the function originally
  * passed to debouncify
  */
@@ -104,7 +108,7 @@ const isPrimative = (value) => {
  */
 const isUndefined = (value) => {
     // void(0) allows us to safely obtain undefined to compare with the passed-in value
-    return value === void(0);
+    return value === void (0);
 };
 
 /**
@@ -319,7 +323,7 @@ const sort = (objects, attribute, direction = "desc", isNullsLast) => {
 * e.g. hasNestedProperty(someObject, 'firstLevel', 'secondLevel', 'thirdLevel')
 */
 const hasNestedProperty = (object, property, ...remainingProperties) => {
-    if (object === undefined) return false
+    if (object === undefined || object === null) return false
     if (remainingProperties.length === 0 && object.hasOwnProperty(property)) return true
     return hasNestedProperty(object[property], ...remainingProperties)
 }
@@ -352,7 +356,7 @@ const getNestedProperty = (object, ...args) => {
 */
 const getLikeMatchByKey = (objectToSearch, keyToFind, returnKey = false) => {
     for (let key in objectToSearch) {
-        if ( key.toLowerCase().indexOf(keyToFind.toLowerCase()) !== -1)
+        if (key.toLowerCase().indexOf(keyToFind.toLowerCase()) !== -1)
             return returnKey ? key : objectToSearch[key];
     }
     return null;
@@ -442,9 +446,187 @@ const validateJSONString = (str) => {
     }
 }
 
+/***
+ * @description Contruct error wrapper from the error event
+ *   error.body is the error from apex calls
+ *   error.body.output.errors is for AuraHandledException messages
+ *   error.body.message errors is the error from wired service
+ *   error.detail.output.errors is the error from record-edit-forms
+ * @returns Object with header and detail to render in the UI
+ */
+const constructErrorMessage = (error) => {
+    let header;
+    let message;
+
+    if (typeof error === 'string' || error instanceof String) {
+        message = error;
+
+    } else if (error.message) {
+        message = error.message;
+
+    } else if ((error.body && error.body.output)) {
+        if (Array.isArray(error.body) &&
+            !error.body.output.errors) {
+            message = error.body.map(e => e.message).join(', ');
+
+        } else if (typeof error.body.message === 'string' &&
+            !error.body.output.errors) {
+            message = error.body.message;
+
+        } else if (error.body.output &&
+            Array.isArray(error.body.output.errors)) {
+            message = error.body.output.errors.map(e => e.message).join(', ');
+        }
+
+    } else if (error.detail && error.detail.output && Array.isArray(error.detail.output.errors)) {
+        header = error.detail.message;
+        message = error.detail.output.errors.map(e => e.message).join(', ');
+
+    } else if (error.body && error.body.message) {
+        message = error.body.message;
+    }
+
+    return {
+        header: header || unknownErrorLabel,
+        detail: message || unknownErrorLabel
+    };
+}
+
+/*******************************************************************************
+ * @description Creates and dispatches a ShowToastEvent
+ *
+ * @param {string} title: Title of the toast, displayed as a heading.
+ * @param {string} message: Message of the toast. It can contain placeholders in
+ * the form of {0} ... {N}. The placeholders are replaced with the links from
+ * messageData param
+ * @param {string} mode: Mode of the toast
+ * @param {array} messageData: List of values that replace the {index} placeholders
+ * in the message param
+ */
+const showToast = (title, message, variant, mode, messageData) => {
+    const event = new ShowToastEvent({
+        title: title,
+        message: message,
+        variant: variant,
+        mode: mode,
+        messageData: messageData
+    });
+    dispatchEvent(event);
+}
+
+/*******************************************************************************
+ * @description Strips namespace prefix from object and field api names
+ * @param apiName
+ * @param namespacePrefix
+ * @returns {*|string}
+ */
+const stripNamespace = (apiName, namespacePrefix) => {
+    if (!apiName.startsWith(namespacePrefix)) {
+        return apiName;
+    }
+    const apiNameParts = apiName.split(namespacePrefix);
+    return apiNameParts[1];
+}
+
+/**
+ * @description Replaces the last instance of "__c" with "__r".
+ * Useful when referencing the related record field on objects
+ * in the lightning/uiRecordApi Record format:
+ * https://developer.salesforce.com/docs/atlas.en-us.uiapi.meta/uiapi/ui_api_responses_record.htm
+ * @param customFieldApiNameOrFieldReference
+ * The ApiName of the relationship field for which the related record
+ * field name is desired, or the field reference object.
+ * https://developer.salesforce.com/docs/atlas.en-us.uiapi.meta/uiapi/ui_api_responses_field_value.htm#ui_api_responses_field_value
+ */
+const relatedRecordFieldNameFor = (customFieldApiNameOrFieldReference) => {
+    const fieldApiName =
+        getFieldApiNameForFieldApiNameOrObjectReference(customFieldApiNameOrFieldReference);
+    return fieldApiName &&
+        replaceLastInstanceOfWith(fieldApiName, '__c', '__r');
+}
+
+/**
+ * @description Replaces the last instance of a string pattern with another pattern.
+ * @param subject The original string.
+ * @param toRemove The pattern for which the last instance should be removed.
+ * @param replacement The pattern used to replace the last instance of toRemove.
+ * @returns {*|void|string} A new string with the last instance replaced.
+ */
+const replaceLastInstanceOfWith = (subject, toRemove, replacement) => {
+    return subject && subject.replace(new RegExp(toRemove + '$'), replacement);
+}
+
+const apiNameFor = (objectOrFieldReference) => {
+    if (objectOrFieldReference === null || objectOrFieldReference === undefined) {
+        return objectOrFieldReference;
+    }
+    if (objectOrFieldReference.hasOwnProperty('fieldApiName')) {
+        return objectOrFieldReference.fieldApiName;
+    } else if (objectOrFieldReference.hasOwnProperty('objectApiName')) {
+        return objectOrFieldReference.objectApiName;
+    } else {
+        return null;
+    }
+}
+
+const isString = (val) => {
+    return typeof val === 'string' || val instanceof String;
+}
+
+const getFieldApiNameForFieldApiNameOrObjectReference = (fieldApiNameOrFieldReference) => {
+    return isString(fieldApiNameOrFieldReference) ?
+        fieldApiNameOrFieldReference :
+        apiNameFor(fieldApiNameOrFieldReference);
+}
+
+/**
+ * @description Converts field describe info into a object that is easily accessible from the front end
+ * Ignore errors to allow the UI to simply not render the layout-item if the field info doesn't exist
+ * (i.e, the field isn't accessible).
+ */
+const extractFieldInfo = (fieldInfos, fldApiName) => {
+    try {
+        const field = fieldInfos[fldApiName];
+        return {
+            apiName: field.apiName,
+            label: field.label,
+            inlineHelpText: field.inlineHelpText,
+            dataType: field.dataType
+        };
+    } catch (error) { }
+}
+
+/**
+ * @description Method converts field describe info into objects that the
+ * getRecord method can accept into its 'fields' parameter.
+ */
+const buildFieldDescribes = (fields, objectApiName) => {
+    return Object.keys(fields).map((fieldApiName) => {
+        return {
+            fieldApiName: fieldApiName,
+            objectApiName: objectApiName
+        }
+    });
+}
+
+const createPicklistOption = (label, value, attributes = null, validFor = []) => ({
+    attributes: attributes,
+    label: label,
+    validFor: validFor,
+    value: value
+});
+
+const nonePicklistOption = () => {
+    return createPicklistOption(commonLabelNone, commonLabelNone);
+}
+
 export {
+    apiNameFor,
+    buildFieldDescribes,
+    constructErrorMessage,
     debouncify,
     deepClone,
+    extractFieldInfo,
     findIndexByProperty,
     getNamespace,
     getQueryParameters,
@@ -458,9 +640,11 @@ export {
     isUndefined,
     isPrimative,
     isNull,
+    isString,
     mutable,
     sort,
     shiftToIndex,
+    showToast,
     removeByProperty,
     removeFromArray,
     format,
@@ -469,5 +653,10 @@ export {
     getLikeMatchByKey,
     arraysMatch,
     getValueFromDotNotationString,
-    validateJSONString
+    validateJSONString,
+    stripNamespace,
+    relatedRecordFieldNameFor,
+    nonePicklistOption,
+    createPicklistOption,
+    UtilDescribe
 };

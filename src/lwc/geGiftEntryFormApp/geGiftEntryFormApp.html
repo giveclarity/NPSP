@@ -16,6 +16,7 @@
             onsectionsretrieved={handleSectionsRetrieved}
             onpermissionerror={handlePermissionErrors}
             ontogglemodal={handleToggleModal}
+            onnavigate={handleNavigateEvent}
             loading-text={loadingText}>
     </c-ge-form-renderer>
 
@@ -32,7 +33,8 @@
                     onloaddata={handleLoadData}
                     ondelete={handleDelete}
                     oncountchanged={handleCountChanged}
-                    ontotalchanged={handleTotalChanged}>
+                    ontotalchanged={handleTotalChanged}
+                    onselectcolumns={handleSelectColumns}>
             </c-ge-batch-gift-entry-table>
         </template>
     </template>

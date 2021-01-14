@@ -9,7 +9,7 @@ Library         cumulusci.robotframework.PageObjects
 Suite Setup     Run keywords
 ...             Open Test Browser
 ...             Setup Test Data
-Suite Teardown  Delete Records and Close Browser
+Suite Teardown  Capture Screenshot and Delete Records and Close Browser
 
 ***Keywords***
 # Sets test data contact and an opportunity for the contact
@@ -42,12 +42,12 @@ Create Donation from a Contact and Delete Opportunity
 
 
     Go To Page                           Details
-    ...                                  Contact
+    ...                                  Account
     ...                                  object_id=${data}[contact][AccountId]
 
     Select Tab                           Details
 
     # Perform Validations
-    Navigate To And Validate Field Value   Total Gifts            contains         $0.00    Membership Information
-    Navigate To And Validate Field Value   Total Number of Gifts  contains           0      Membership Information
+    Navigate To And Validate Field Value   Total Gifts            contains         $0.00    Donation Totals
+    Navigate To And Validate Field Value   Total Number of Gifts  contains           0      Donation Totals
 

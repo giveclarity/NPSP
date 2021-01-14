@@ -58,6 +58,33 @@ public without sharing class RD2_OpportunityEvaluation_BATCH
         private set;
     }
 
+    /***
+    * @description Contains batch Apex class name
+    */
+    private String batchClassName {
+        get {
+            if (batchClassName == null) {
+                batchClassName = RD2_OpportunityEvaluation_BATCH.class.getName();
+            }
+            return batchClassName;
+        }
+        set;
+    }
+
+    /***
+    * @description Checks if another concurrent batch job is in progress
+    */
+    @TestVisible
+    private Boolean isConcurrentBatch {
+        get {
+            if (isConcurrentBatch == null) {
+                isConcurrentBatch = new UTIL_BatchJobService().isConcurrentBatch(batchClassName);
+            }
+            return isConcurrentBatch;
+        }
+        set;
+    }
+
     /**
     * @description Should Rollups be disabled before any new Installments Opps are inserted
     */
@@ -129,11 +156,20 @@ public without sharing class RD2_OpportunityEvaluation_BATCH
     * @description Batch Start Method
     */
     public Database.QueryLocator start(Database.BatchableContext context) {
-        if (RD2_EnablementService.isRecurringDonations2Enabled) {
-            return Database.getQueryLocator(getRDBatchQuery());
-        } else {
+        if (!RD2_EnablementService.isRecurringDonations2Enabled) {
             throw new BatchException(System.Label.RD2_ErrorEnhancedRDBatchJobCannotBeRun);
         }
+
+        validateStatusField();
+
+        String query = getRDBatchQuery();
+
+        if (isConcurrentBatch) {
+            new UTIL_BatchJobService().logConcurrentBatchError(batchClassName, ERR_Handler_API.Context.RD);
+            query += ' LIMIT 0';
+        }    
+        return Database.getQueryLocator(query);
+        
     }
 
     /**
@@ -175,6 +211,18 @@ public without sharing class RD2_OpportunityEvaluation_BATCH
     public void finish(Database.BatchableContext context) {
         new RD2_Settings()
             .saveLatestBatchResults(context.getJobId(), recordsProcessed, recordsFailed);
+    }
+
+    /**
+    * @description validate system requirements related to Recurring Donation Evaluation Batch
+    * If Paused Status is not Active, an error record will be generated.
+    */
+    private void validateStatusField() {
+       if (!RD2_ValidationService.isStatusPausedActive()) {
+            BatchException ex = new BatchException(System.Label.RD2_PauseStatusMustExist);
+            ex.setMessage(System.Label.RD2_PauseStatusMustExist);
+            ERR_Handler.processError(ex, ERR_Handler_API.Context.RD);
+        }
     }
 
     /**

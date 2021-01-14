@@ -3,12 +3,18 @@ import { LightningElement, api } from 'lwc';
 export default class UtilIllustration extends LightningElement {
     @api illustrationClass;
     @api size;
+    @api heading;
     @api title;
     @api message;
+    @api shouldWrapText;
 
     // Valid values: lake-mountain, going-camping
     // Pulled from https://lightningdesignsystem.com/components/illustration
     @api variant;
+
+    get hasHeading() {
+        return this.heading ? true : false;
+    }
 
     get hasTitle() {
         return this.title ? true : false;

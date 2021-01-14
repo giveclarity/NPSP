@@ -13,8 +13,9 @@ export default class GeTemplateBuilderFormSection extends LightningElement {
     @api activeFormSectionId;
     @api isFirst;
     @api isLast;
-
     @api formSection;
+    @api sourceObjectFieldsDescribe;
+
 
     get isActive() {
         return this.activeFormSectionId === this.formSection.id ? true : false;
@@ -63,6 +64,16 @@ export default class GeTemplateBuilderFormSection extends LightningElement {
     /*******************************************************************************
     * End getters for data-qa-locator attributes
     */
+
+    /*******************************************************************************
+     * @description Handles the custom event fired from the geTemplateBuilderFormField child when
+     * there is a metadata error on the field such as a deleted field mapping or deleted source or
+     * target field.
+     * @param {object} event: object for the custom event
+     */
+    handleFieldMetadataValidation(event) {
+        this.dispatchEvent(new CustomEvent('fieldmetadatavalidation', {detail : event.detail}));
+    }
 
     /*******************************************************************************
     * @description Dispatches an event notifying the parent component GE_TemplateBuilder

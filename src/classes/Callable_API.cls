@@ -94,9 +94,27 @@ global with sharing class Callable_API implements System.Callable {
                 // Since there are multiple actions that can be invoked, the ERR_Dispatch_API will get the remaining params out of the
                 // parameter service depending on which action was invoked
                 return CallableDispatchService_ERR.getInstanceOf(paramService).dispatch();
-                
+
             } when 'rd2.executedatamigration' {
                 return RD2_EnablementDelegate_CTRL.callableApiRunMigration();
+
+            } when 'rd2.queryschedules' {
+                Set<Id> rdIds = paramService
+                    .withRequiredParamCheck()
+                    .getSetId(CallableApiParameters.PARAM_RECORD_IDS);
+                    
+                return new RD2_ApiService().querySchedules(rdIds);
+
+            } when 'rd2.queryinstallments' {
+                Date startDate = paramService
+                    .getDate(CallableApiParameters.PARAM_START_DATE);
+                Date endDate = paramService
+                    .getDate(CallableApiParameters.PARAM_END_DATE);
+                Set<Id> rdIds = paramService
+                    .withRequiredParamCheck()
+                    .getSetId(CallableApiParameters.PARAM_RECORD_IDS);
+
+                return new RD2_ApiService().queryInstallments(startDate, endDate, rdIds);
 
             } when 'settings.enableenhancedrecurringdonations' {
                 Boolean scheduleJobsWhenComplete = paramService.getBoolean(CallableApiParameters.PARAM_SCHEDULE_JOBS, true);
@@ -127,6 +145,24 @@ global with sharing class Callable_API implements System.Callable {
             } when 'settings.enablecustomizablerollups' {
                 Boolean scheduleJobsWhenComplete = paramService.getBoolean(CallableApiParameters.PARAM_SCHEDULE_JOBS, true);
                 return new CRLP_EnablementService().enable(scheduleJobsWhenComplete);
+
+            } when 'job.schedule' { 
+                // This method schedules the specified Schedulable class using the specified job name & cron expression.
+                // It should only be used for Schedulable classes that are in the NPSP Managed Package.
+                // It returns the Job ID of the Scheduled Job.
+                String scheduledJobName = paramService.getString(CallableApiParameters.PARAM_SCHEDULED_JOB_NAME);
+                String scheduledJobCronExpression = paramService.getString(CallableApiParameters.PARAM_SCHEDULED_JOB_CRON_EXPRESSION);
+                String scheduledJobClass = paramService.getString(CallableApiParameters.PARAM_SCHEDULED_JOB_CLASS);
+                
+                Type scheduledClassType = Type.forName(scheduledJobClass);
+                if(scheduledClassType == null){
+                    throw new MalformedMethodInvocationException(
+                        String.format(System.Label.CallableApiJobScheduleInvalidClass, new List<String> { scheduledJobClass })
+                    );
+                }
+                
+                Schedulable schedulableClass = (Schedulable) scheduledClassType.newInstance();
+                return System.schedule(scheduledJobName, scheduledJobCronExpression, schedulableClass);
 
             } when else {
                 throw new MalformedMethodInvocationException(
